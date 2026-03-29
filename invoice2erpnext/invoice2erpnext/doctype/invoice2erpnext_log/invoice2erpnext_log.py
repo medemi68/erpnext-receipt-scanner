@@ -775,39 +775,52 @@ def create_purchase_invoice_from_file(file_doc_name, mode='auto', supplier=None,
     api_url = urljoin(base_url, endpoint)
 
     try:
-        # Get the file from the filesystem using absolute site path
+        # Get file content using Frappe's API (handles disk files, DB-stored files, etc.)
         file_name = os.path.basename(file_doc.file_url)
-        if file_doc.is_private:
-            file_path = os.path.join(get_site_path("private", "files"), file_doc.file_name)
-        else:
-            file_path = os.path.join(get_site_path("public", "files"), file_doc.file_name)
-        
-        if not os.path.exists(file_path):
-            frappe.throw(f"File not found on disk: {file_path}")
-        
+
+        # Try to get file content via Frappe's get_content method first
+        file_content_bytes = None
+
+        # Method 1: Read from disk using file_url path
+        file_path = os.path.abspath(get_site_path(file_doc.file_url.lstrip("/")))
+        if os.path.exists(file_path):
+            with open(file_path, 'rb') as f:
+                file_content_bytes = f.read()
+
+        # Method 2: Use Frappe's get_content() which handles DB storage
+        if not file_content_bytes:
+            try:
+                file_content_bytes = file_doc.get_content()
+                if isinstance(file_content_bytes, str):
+                    file_content_bytes = file_content_bytes.encode()
+            except Exception:
+                pass
+
+        if not file_content_bytes:
+            frappe.throw(f"Could not read file content for: {file_name}")
+
         # Determine content type based on file extension
         content_type, _ = mimetypes.guess_type(file_name)
         if not content_type:
-            content_type = 'application/octet-stream'  # Default content type
-        
-        # Open the file in binary mode and create the files object for multipart/form-data
-        with open(file_path, 'rb') as file_content:
-            files = {
-                'file': (file_name, file_content, content_type)
-            }
-            
-            # Prepare form data
-            form_data = {
-                "is_private": "1"
-            }
-            
-            # Make the API call with multipart/form-data
-            response = requests.post(
-                api_url,
-                headers=headers,
-                files=files,
-                data=form_data
-            )
+            content_type = 'application/octet-stream'
+
+        # Create the files object for multipart/form-data
+        files = {
+            'file': (file_name, file_content_bytes, content_type)
+        }
+
+        # Prepare form data
+        form_data = {
+            "is_private": "1"
+        }
+
+        # Make the API call with multipart/form-data
+        response = requests.post(
+            api_url,
+            headers=headers,
+            files=files,
+            data=form_data
+        )
         
         # Check if the request was successful
         if response.status_code == 200:
