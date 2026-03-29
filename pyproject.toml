@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invoice2erpnext"
+description = "Data extractor for PDF invoices"
+readme = "README.md"
+authors = [
+    { name = "KAINOTOMO PH LTD", email = "info@kainotomo.com" },
+]
+license = { file = "license.txt" }
+dynamic = ["version", "dependencies"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["invoice2erpnext*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "invoice2erpnext.__version__" }
+dependencies = { file = ["requirements.txt"] }
+
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<17.0.0"

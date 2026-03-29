@@ -1,0 +1,145 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-03-29 07:06:12.510010",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "status",
+  "file",
+  "cost",
+  "column_break_ftkp",
+  "created_docs",
+  "message",
+  "section_break_manual",
+  "manual_mode",
+  "manual_supplier",
+  "manual_item",
+  "response"
+ ],
+ "fields": [
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nError\nRetrieved\nSuccess",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Long Text",
+   "label": "Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ftkp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "created_docs",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Created Document",
+   "read_only": 1
+  },
+  {
+   "fieldname": "response",
+   "fieldtype": "Code",
+   "hidden": 1,
+   "label": "Response",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "file",
+   "fieldtype": "Link",
+   "label": "File",
+   "options": "File",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_manual",
+   "fieldtype": "Section Break",
+   "label": "Manual Processing"
+  },
+  {
+   "default": "0",
+   "fieldname": "manual_mode",
+   "fieldtype": "Check",
+   "label": "Manual Mode",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manual_supplier",
+   "fieldtype": "Link",
+   "label": "Manual Supplier",
+   "options": "Supplier",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manual_item",
+   "fieldtype": "Link",
+   "label": "Manual Item",
+   "options": "Item",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-04-07 09:35:29.661482",
+ "modified_by": "Administrator",
+ "module": "Invoice2Erpnext",
+ "name": "Invoice2Erpnext Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,15 @@
+services:
+  invoice-ocr:
+    build: .
+    container_name: invoice-ocr
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - AI_MODEL=${AI_MODEL:-claude-sonnet-4-20250514}
+      - AUTH_TOKEN_KEY=${AUTH_TOKEN_KEY}
+      - AUTH_TOKEN_SECRET=${AUTH_TOKEN_SECRET}
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-20}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
