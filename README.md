@@ -1,5 +1,9 @@
 # ERPNext Receipt Scanner - Self-Hosted Receipt Scanner
 
+> **WARNING: ALPHA SOFTWARE - ACTIVE TESTING BRANCH**
+>
+> This plugin is in early alpha and under active development. The code might not work at all. Features may be incomplete, broken, or change without notice. **Use at your own risk.** Always back up your ERPNext instance before installing.
+
 A self-hosted invoice/receipt scanner for ERPNext v16 that uses AI vision to extract data from PDFs and images and automatically create Purchase Invoices.
 
 Based on the MIT-licensed [invoice2erpnext](https://github.com/kainotomo/invoice2erpnext) by KAINOTOMO PH LTD, modified to use a self-hosted OCR server instead of the KAINOTOMO paid API.
