@@ -15,6 +15,7 @@
   "manual_mode",
   "manual_supplier",
   "manual_item",
+  "currency_override",
   "response"
  ],
  "fields": [
@@ -92,6 +93,13 @@
    "fieldtype": "Link",
    "label": "Manual Item",
    "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "currency_override",
+   "fieldtype": "Link",
+   "label": "Currency Override",
+   "options": "Currency",
    "read_only": 1
   }
  ],

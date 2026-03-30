@@ -18,7 +18,9 @@
   "column_break_kfsd",
   "item_group",
   "one_item_invoice",
-  "item"
+  "item",
+  "currency_accounts_section",
+  "currency_accounts"
  ],
  "fields": [
   {
@@ -108,6 +110,18 @@
    "fieldname": "defaults_section_section",
    "fieldtype": "Section Break",
    "label": "Defaults"
+  },
+  {
+   "fieldname": "currency_accounts_section",
+   "fieldtype": "Section Break",
+   "label": "Currency Payable Accounts"
+  },
+  {
+   "description": "Map each currency to its Accounts Payable account. When a currency is selected during upload, the corresponding account will be set as the credit_to on the Purchase Invoice.",
+   "fieldname": "currency_accounts",
+   "fieldtype": "Table",
+   "label": "Currency Accounts",
+   "options": "Invoice2Erpnext Currency Account"
   }
  ],
  "index_web_pages_for_search": 1,

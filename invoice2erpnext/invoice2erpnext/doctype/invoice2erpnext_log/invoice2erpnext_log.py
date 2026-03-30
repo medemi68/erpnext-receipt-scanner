@@ -54,16 +54,17 @@ class Invoice2ErpnextLog(Document):
             # Get invoice date
             invoice_date = invoice_details.get('invoice_date', frappe.utils.today())
             
-            # Get currency
-            currency = invoice_details.get('currency', 'EUR')
-            
+            # Get currency (override takes precedence)
+            extracted_currency = invoice_details.get('currency', 'EUR')
+            currency = self._get_currency(extracted_currency)
+
             # Get amount info
             total_amount = invoice_details.get('total_amount', 0)
             total_tax = invoice_details.get('total_tax', 0)
-            
+
             # Calculate net amount
             net_amount = total_amount - total_tax if total_tax else total_amount
-            
+
             # Create the Purchase Invoice
             purchase_invoice = frappe.new_doc("Purchase Invoice")
             purchase_invoice.title = supplier
@@ -74,6 +75,11 @@ class Invoice2ErpnextLog(Document):
             purchase_invoice.currency = currency
             purchase_invoice.conversion_rate = 1
             purchase_invoice.set_posting_time = True
+
+            # Set payable account if configured for this currency
+            payable_account = self._get_payable_account(currency)
+            if payable_account:
+                purchase_invoice.credit_to = payable_account
 
             # Add the selected item properly using proper row creation
             item = purchase_invoice.append("items", {})
@@ -227,26 +233,27 @@ class Invoice2ErpnextLog(Document):
             
             if not vendor_name:
                 frappe.throw("Vendor name not found in extracted document")
-            
-            # 1. Create Supplier document
-            supplier_doc = self._create_supplier_doc(vendor_info)
+
+            # 1. Extract date and currency (needed for supplier creation)
+            date_currency = self._extract_date_currency(extracted_doc, bill_no, document_score)
+            document_score = date_currency.get('document_score', document_score)
+            invoice_date = date_currency.get('invoice_date', '')
+            extracted_currency = date_currency.get('currency', 'EUR')
+            currency = self._get_currency(extracted_currency)
+
+            # 2. Create Supplier document (with default currency)
+            supplier_doc = self._create_supplier_doc(vendor_info, currency)
             result["erpnext_docs"].append(supplier_doc)
-            
-            # 2. Process items
+
+            # 3. Process items
             items_result = self._process_items(extracted_doc, bill_no, document_score)
             document_score = items_result.get('document_score', document_score)
             invoice_items = items_result.get('invoice_items', [])
             result["erpnext_docs"].extend(items_result.get('item_docs', []))
-            
-            # 3. Extract date and currency
-            date_currency = self._extract_date_currency(extracted_doc, bill_no, document_score)
-            document_score = date_currency.get('document_score', document_score)
-            invoice_date = date_currency.get('invoice_date', '')
-            currency = date_currency.get('currency', 'EUR')
-            
+
             # 4. Extract payment terms
             payment_terms = extracted_doc.get("PaymentTerm", {}).get("valueString", "")
-            
+
             # 5. Create Purchase Invoice structure
             purchase_invoice = {
                 "doctype": "Purchase Invoice",
@@ -261,6 +268,11 @@ class Invoice2ErpnextLog(Document):
                 "items": invoice_items,
                 "payment_terms_template": payment_terms if frappe.db.exists("Payment Terms Template", payment_terms) else "",
             }
+
+            # Set payable account if configured for this currency
+            payable_account = self._get_payable_account(currency)
+            if payable_account:
+                purchase_invoice["credit_to"] = payable_account
             
             # 6. Process amounts and adjust items if needed
             amounts_result = self._process_amounts(extracted_doc, invoice_items, bill_no)
@@ -363,31 +375,45 @@ class Invoice2ErpnextLog(Document):
             'document_score': document_score
         }
         
-    def _create_supplier_doc(self, vendor_info):
-        """Create supplier document structure"""
-        # Get supplier group from settings
+    def _create_supplier_doc(self, vendor_info, currency=None):
+        """Create supplier document structure with default currency and payable account"""
         try:
             settings = frappe.get_doc("Invoice2Erpnext Settings")
             supplier_group = settings.supplier_group or "All Supplier Groups"
         except Exception as e:
             frappe.log_error(f"Error fetching settings: {str(e)}")
-            supplier_group = "All Supplier Groups"  # Fallback to default
-            
+            supplier_group = "All Supplier Groups"
+
         vendor_name = vendor_info.get('vendor_name', '')
         vendor_address = vendor_info.get('vendor_address', {})
         vendor_tax_id = vendor_info.get('vendor_tax_id', '')
-        
-        return {
+
+        supplier_doc = {
             "doctype": "Supplier",
             "supplier_name": vendor_name,
             "supplier_group": supplier_group,
-            "supplier_type": "Company",  # Default value
-            "country": vendor_address.get("countryRegion", "Cyprus"),
+            "supplier_type": "Company",
+            "country": vendor_address.get("countryRegion", ""),
             "address_line1": vendor_address.get("streetAddress", ""),
-            "city": vendor_address.get("city", "Larnaka"),
+            "city": vendor_address.get("city", ""),
             "pincode": vendor_address.get("postalCode", ""),
             "tax_id": vendor_tax_id
         }
+
+        if currency:
+            supplier_doc["default_currency"] = currency
+
+            # Set the default payable account for this currency on the supplier
+            payable_account = self._get_payable_account(currency)
+            if payable_account:
+                company = frappe.defaults.get_defaults().get("company")
+                if company:
+                    supplier_doc["accounts"] = [{
+                        "company": company,
+                        "account": payable_account
+                    }]
+
+        return supplier_doc
         
     def _extract_date_currency(self, extracted_doc, bill_no, document_score):
         """Extract date and currency information"""
@@ -722,6 +748,23 @@ class Invoice2ErpnextLog(Document):
         self.status = "Success"
         self.save()
     
+    def _get_payable_account(self, currency):
+        """Get the Accounts Payable account for a given currency from settings"""
+        try:
+            settings = frappe.get_doc("Invoice2Erpnext Settings")
+            for row in (settings.currency_accounts or []):
+                if row.currency == currency:
+                    return row.payable_account
+        except Exception as e:
+            frappe.log_error(f"Error fetching payable account: {str(e)}")
+        return None
+
+    def _get_currency(self, extracted_currency):
+        """Get the effective currency - override takes precedence over extracted"""
+        if self.currency_override:
+            return self.currency_override
+        return extracted_currency or 'EUR'
+
     def _get_vat_account(self):
         """Get VAT account from settings"""
         try:
@@ -742,7 +785,7 @@ class Invoice2ErpnextLog(Document):
             return 0
 
 @frappe.whitelist()
-def create_purchase_invoice_from_file(file_doc_name, mode='auto', supplier=None, item=None):
+def create_purchase_invoice_from_file(file_doc_name, mode='auto', supplier=None, item=None, currency_override=None):
     """Create a Purchase Invoice from an existing File document"""
 
     file_doc = frappe.get_doc("File", file_doc_name)
@@ -832,10 +875,14 @@ def create_purchase_invoice_from_file(file_doc_name, mode='auto', supplier=None,
             if isinstance(message, dict) and message.get("success"):
                 doc.status = "Retrieved"
                 
+                # Store currency override if provided
+                if currency_override:
+                    doc.currency_override = currency_override
+
                 # For manual mode, store the supplier and item selection
                 if mode == 'manual' and supplier and item:
                     doc.message = "Manual selection mode - using specified supplier and item"
-                    doc.manual_mode = 1  # Flag to indicate manual processing
+                    doc.manual_mode = 1
                     doc.manual_supplier = supplier
                     doc.manual_item = item
                 else:
