@@ -1,68 +1,78 @@
-frappe.listview_settings['Purchase Invoice'] = {
-    onload: function(listview) {
-        frappe.xcall('invoice2erpnext.utils.check_settings_enabled')
-            .then(enabled => {
-                if (enabled) {
-                    listview.page.add_menu_item(__('Upload (Auto)'), function() {
-                        show_currency_dialog(function(currency) {
+// Preserve any existing listview settings from ERPNext
+const existing_onload = (frappe.listview_settings['Purchase Invoice'] || {}).onload;
+
+frappe.listview_settings['Purchase Invoice'] = Object.assign(
+    frappe.listview_settings['Purchase Invoice'] || {},
+    {
+        onload: function(listview) {
+            // Call ERPNext's original onload if it exists
+            if (existing_onload) existing_onload.call(this, listview);
+
+            frappe.xcall('invoice2erpnext.utils.check_settings_enabled')
+                .then(enabled => {
+                    if (enabled) {
+                        // Menu items for uploading invoices
+                        listview.page.add_menu_item(__('Upload (Auto)'), function() {
+                            show_currency_dialog(function(currency) {
+                                new frappe.ui.FileUploader({
+                                    as_dataurl: false,
+                                    allow_multiple: true,
+                                    on_success: function(file_doc) {
+                                        create_purchase_invoice_from_files(file_doc, listview, 'auto', null, null, currency);
+                                    }
+                                });
+                            });
+                        });
+                        listview.page.add_menu_item(__('Upload (Manual)'), function() {
                             new frappe.ui.FileUploader({
                                 as_dataurl: false,
                                 allow_multiple: true,
                                 on_success: function(file_doc) {
-                                    create_purchase_invoice_from_files(file_doc, listview, 'auto', null, null, currency);
+                                    create_purchase_invoice_from_files(file_doc, listview, 'manual');
                                 }
                             });
                         });
-                    });
-                    listview.page.add_menu_item(__('Upload (Manual)'), function() {
-                        new frappe.ui.FileUploader({
-                            as_dataurl: false,
-                            allow_multiple: true,
-                            on_success: function(file_doc) {
-                                create_purchase_invoice_from_files(file_doc, listview, 'manual');
+
+                        // Bulk action: appears in Actions dropdown when rows are selected
+                        listview.page.add_action_item(__('Recategorize Expenses (AI)'), function() {
+                            const selected = listview.get_checked_items();
+                            if (selected.length === 0) {
+                                frappe.msgprint(__('Please select at least one Purchase Invoice'));
+                                return;
                             }
-                        });
-                    });
 
-                    // Bulk action for recategorizing selected invoices
-                    listview.page.add_action_item(__('Recategorize Expenses (AI)'), function() {
-                        const selected = listview.get_checked_items();
-                        if (selected.length === 0) {
-                            frappe.msgprint(__('Please select at least one Purchase Invoice'));
-                            return;
-                        }
+                            const invoice_names = selected.map(d => d.name);
 
-                        const invoice_names = selected.map(d => d.name);
+                            frappe.show_alert({
+                                message: __('Sending {0} invoice(s) to AI for categorization...', [invoice_names.length]),
+                                indicator: 'blue'
+                            });
 
-                        frappe.show_alert({
-                            message: __('Sending {0} invoice(s) to AI for categorization...', [invoice_names.length]),
-                            indicator: 'blue'
-                        });
-
-                        frappe.call({
-                            method: 'invoice2erpnext.invoice2erpnext.doctype.invoice2erpnext_settings.invoice2erpnext_settings.recategorize_invoices',
-                            args: { invoice_names: invoice_names },
-                            callback: function(r) {
-                                if (r.message && r.message.length > 0) {
-                                    show_review_dialog(r.message, listview);
-                                } else {
-                                    frappe.msgprint(__('No categorization results returned'));
+                            frappe.call({
+                                method: 'invoice2erpnext.invoice2erpnext.doctype.invoice2erpnext_settings.invoice2erpnext_settings.recategorize_invoices',
+                                args: { invoice_names: invoice_names },
+                                callback: function(r) {
+                                    if (r.message && r.message.length > 0) {
+                                        show_review_dialog(r.message, listview);
+                                    } else {
+                                        frappe.msgprint(__('No categorization results returned'));
+                                    }
+                                },
+                                error: function() {
+                                    frappe.msgprint({
+                                        title: __('Error'),
+                                        indicator: 'red',
+                                        message: __('Failed to recategorize. Check the error log for details.')
+                                    });
                                 }
-                            },
-                            error: function() {
-                                frappe.msgprint({
-                                    title: __('Error'),
-                                    indicator: 'red',
-                                    message: __('Failed to recategorize. Check the error log for details.')
-                                });
-                            }
+                            });
                         });
-                    });
-                }
-            })
-            .catch(() => {});
+                    }
+                })
+                .catch(() => {});
+        }
     }
-};
+);
 
 // Dialog to select currency before upload (Auto mode)
 function show_currency_dialog(callback) {
