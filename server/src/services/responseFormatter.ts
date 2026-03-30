@@ -77,6 +77,7 @@ export function formatResponse(extraction: AIExtractionResult): KainotomoRespons
               currencyCode: extraction.CurrencyCode,
             },
           },
+          ExpenseAccount: { valueString: item.ExpenseAccount || "" },
         },
       })),
     },

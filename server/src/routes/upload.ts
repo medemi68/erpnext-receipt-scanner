@@ -29,12 +29,23 @@ router.post(
         `Processing file: ${req.file.originalname} (${(req.file.size / 1024).toFixed(1)} KB)`
       );
 
+      // Parse expense accounts from form data (sent as JSON string)
+      let expenseAccounts: string[] = [];
+      if (req.body.expense_accounts) {
+        try {
+          expenseAccounts = JSON.parse(req.body.expense_accounts);
+          console.log(`Received ${expenseAccounts.length} expense accounts for categorization`);
+        } catch {
+          console.warn("Failed to parse expense_accounts, skipping categorization");
+        }
+      }
+
       // 1. Convert file to images
       const images = await processFile(req.file.buffer, req.file.originalname);
       console.log(`Converted to ${images.length} image(s)`);
 
-      // 2. Send to AI for extraction
-      const extraction = await extractInvoiceData(images);
+      // 2. Send to AI for extraction (with expense accounts if provided)
+      const extraction = await extractInvoiceData(images, expenseAccounts);
       console.log(
         `Extracted invoice: ${extraction.InvoiceId} from ${extraction.VendorName}`
       );

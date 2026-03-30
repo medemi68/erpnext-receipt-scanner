@@ -4,6 +4,7 @@ import type { AIExtractionResult } from "../types/index.js";
 import {
   INVOICE_EXTRACTION_PROMPT,
   MULTI_PAGE_ADDENDUM,
+  buildExpenseAccountsAddendum,
 } from "../prompts/invoice-extraction.js";
 import * as anthropicProvider from "../providers/anthropic.js";
 import * as ollamaProvider from "../providers/ollama.js";
@@ -70,7 +71,6 @@ function extractJson(raw: string): string {
       depth--;
       if (depth === 0 && start !== -1) {
         const candidate = text.slice(start, i + 1);
-        // Keep the largest balanced block (the real JSON, not a small {} in thinking)
         if (bestStart === -1 || candidate.length > (bestEnd - bestStart + 1)) {
           bestStart = start;
           bestEnd = i;
@@ -90,7 +90,8 @@ function extractJson(raw: string): string {
 }
 
 export async function extractInvoiceData(
-  images: ProcessedImage[]
+  images: ProcessedImage[],
+  expenseAccounts?: string[]
 ): Promise<AIExtractionResult> {
   const provider = providers[config.aiProvider];
   if (!provider) {
@@ -99,10 +100,15 @@ export async function extractInvoiceData(
     );
   }
 
-  const prompt =
-    images.length > 1
-      ? INVOICE_EXTRACTION_PROMPT + MULTI_PAGE_ADDENDUM
-      : INVOICE_EXTRACTION_PROMPT;
+  let prompt = INVOICE_EXTRACTION_PROMPT;
+
+  if (expenseAccounts && expenseAccounts.length > 0) {
+    prompt += buildExpenseAccountsAddendum(expenseAccounts);
+  }
+
+  if (images.length > 1) {
+    prompt += MULTI_PAGE_ADDENDUM;
+  }
 
   const rawText = await provider.extract(images, prompt);
   const jsonText = extractJson(rawText);

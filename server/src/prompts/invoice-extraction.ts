@@ -25,7 +25,8 @@ Return ONLY valid JSON with no additional text, using this exact structure:
       "ProductCode": "<product code/SKU if available, empty string if not>",
       "Quantity": <quantity as number>,
       "UnitPrice": <unit price as number>,
-      "Amount": <line total as number>
+      "Amount": <line total as number>,
+      "ExpenseAccount": "<expense account name from the list below, or empty string>"
     }
   ],
   "Confidence": {
@@ -52,6 +53,17 @@ Rules:
 - The CurrencyCode should be the ISO 4217 code (EUR, USD, GBP, etc.)
 - If the document spans multiple pages, extract and combine data from all pages
 - Normalize all text so that each word's first letter is capitalized where necessary, but not completely uppercase`;
+
+export function buildExpenseAccountsAddendum(accounts: string[]): string {
+  if (!accounts.length) return "";
+  return `
+
+EXPENSE ACCOUNT CATEGORIZATION:
+For each line item, set the "ExpenseAccount" field to the most appropriate account from the following list. Use your best judgment based on the item description. You MUST use the EXACT account name from this list (copy it exactly). If no account is a good fit, use an empty string.
+
+Available expense accounts:
+${accounts.map((a) => `- ${a}`).join("\n")}`;
+}
 
 export const MULTI_PAGE_ADDENDUM =
   "\n\nThis document spans multiple pages. Extract data from ALL pages and combine into a single result.";

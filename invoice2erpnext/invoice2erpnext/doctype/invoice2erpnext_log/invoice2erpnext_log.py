@@ -546,11 +546,19 @@ class Invoice2ErpnextLog(Document):
             }
             item_docs.append(item_doc)
             
+            # Get expense account from AI categorization
+            expense_account = item_data.get("ExpenseAccount", {}).get("valueString", "")
+
             # Handle negative amounts (credits/refunds)
             is_credit = amount < 0
-            
+
             # Create invoice item
             invoice_item = self._create_invoice_item(item_code, quantity, unit_price, amount, description, is_credit)
+
+            # Set expense account if the AI categorized it
+            if expense_account and frappe.db.exists("Account", expense_account):
+                invoice_item["expense_account"] = expense_account
+
             invoice_items.append(invoice_item)
             
         return {
@@ -852,9 +860,13 @@ def create_purchase_invoice_from_file(file_doc_name, mode='auto', supplier=None,
             'file': (file_name, file_content_bytes, content_type)
         }
 
+        # Fetch expense accounts to send to the OCR server for categorization
+        expense_accounts = _get_expense_accounts()
+
         # Prepare form data
         form_data = {
-            "is_private": "1"
+            "is_private": "1",
+            "expense_accounts": json.dumps(expense_accounts)
         }
 
         # Make the API call with multipart/form-data
@@ -910,6 +922,29 @@ def create_purchase_invoice_from_file(file_doc_name, mode='auto', supplier=None,
     
     doc.save()
     return doc.name
+
+def _get_expense_accounts():
+    """Fetch all Direct and Indirect Expense accounts from the default company"""
+    try:
+        company = frappe.defaults.get_defaults().get("company")
+        if not company:
+            return []
+
+        accounts = frappe.get_all(
+            "Account",
+            filters={
+                "company": company,
+                "root_type": "Expense",
+                "is_group": 0,
+            },
+            fields=["name"],
+            order_by="name",
+        )
+        return [a["name"] for a in accounts]
+    except Exception as e:
+        frappe.log_error(f"Error fetching expense accounts: {str(e)}")
+        return []
+
 
 def validate_and_fix_date(date_string, reference_id=""):
     """

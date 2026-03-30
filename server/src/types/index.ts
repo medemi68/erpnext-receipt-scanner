@@ -27,6 +27,7 @@ export interface ExtractedItemFields {
   Quantity: { valueNumber: number };
   UnitPrice: { valueCurrency: CurrencyValue };
   Amount: { valueCurrency: CurrencyValue };
+  ExpenseAccount: { valueString: string };
 }
 
 export interface ExtractedItem {
@@ -85,6 +86,7 @@ export interface AIExtractionResult {
     Quantity: number;
     UnitPrice: number;
     Amount: number;
+    ExpenseAccount: string;
   }>;
   Confidence: {
     InvoiceId: number;

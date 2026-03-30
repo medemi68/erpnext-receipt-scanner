@@ -4,12 +4,13 @@ import { authMiddleware } from "./middleware/auth.js";
 import uploadRouter from "./routes/upload.js";
 import creditsRouter from "./routes/credits.js";
 import healthRouter from "./routes/health.js";
+import categorizeRouter from "./routes/categorize.js";
 
 validateConfig();
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 // Health check (no auth required)
 app.use(healthRouter);
@@ -17,6 +18,7 @@ app.use(healthRouter);
 // Protected routes
 app.use(authMiddleware, uploadRouter);
 app.use(authMiddleware, creditsRouter);
+app.use(authMiddleware, categorizeRouter);
 
 app.listen(config.port, () => {
   console.log(`Invoice OCR server running on port ${config.port}`);
