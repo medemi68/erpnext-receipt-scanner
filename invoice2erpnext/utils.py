@@ -51,6 +51,37 @@ def format_currency_value(value):
     
     return formatted_value
 
+def override_party_account_currency_cache(doc, method):
+    """Before-validate hook for Purchase Invoice.
+
+    ERPNext enforces single-currency-per-supplier at two levels:
+    1. validate_currency() checks the supplier's party account currency
+    2. validate_party_gle_currency() (during submit/GL creation) checks
+       that new GL entries match the supplier's historical GL currency
+
+    When the plugin sets a different currency with a matching credit_to
+    account, both validations are false positives.  This hook overrides
+    the relevant caches so both checks pass.
+    """
+    if doc.currency and doc.supplier and doc.company:
+        # Override for validate_currency()
+        frappe.local.cache.setdefault("party_account_currency", {})[
+            ("Supplier", doc.supplier, doc.company)
+        ] = doc.currency
+
+        # Override for validate_party_gle_currency() during GL entry creation.
+        # Set the "historical" GL currency to match the credit_to account's
+        # currency so the GL entry validation passes on submit.
+        credit_to_currency = doc.currency
+        if doc.credit_to:
+            credit_to_currency = frappe.get_cached_value(
+                "Account", doc.credit_to, "account_currency"
+            ) or doc.currency
+        frappe.local.cache.setdefault("party_gle_currency", {})[
+            ("Supplier", doc.supplier, doc.company)
+        ] = credit_to_currency
+
+
 @frappe.whitelist()
 def check_settings_enabled():
     """Safely check if Invoice2Erpnext is enabled without permission errors"""

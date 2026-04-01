@@ -183,6 +183,34 @@ npx tsx scripts/test-upload.ts receipt.pdf --server http://invoice-ocr:3000
 
 The test script shows extracted data with color-coded confidence scores and validates that amounts reconcile correctly.
 
+## Multi-Currency Invoices
+
+The plugin supports processing invoices in any currency, even when the supplier normally invoices in a different currency (e.g., a USD supplier sending a one-off CAD invoice). The AI extraction detects the invoice currency automatically and the plugin sets the correct `credit_to` (creditors/payable) account based on your currency-to-account mappings in **Invoice2Erpnext Settings**.
+
+### Setup
+
+Add a row in **Invoice2Erpnext Settings → Currency Accounts** for each currency you deal with, mapping it to the appropriate creditors account:
+
+| Currency | Payable Account |
+|----------|-----------------|
+| CAD | Creditors CAD - ABC |
+| USD | Creditors USD - ABC |
+
+### How It Works
+
+- New suppliers created by the plugin are **not locked to a single currency**. The plugin sets `credit_to` per-invoice based on the detected currency rather than relying on the supplier's default party account.
+- For existing suppliers that already have GL entries in one currency, the plugin bypasses ERPNext's single-currency-per-supplier validation so the invoice can be created and submitted with the correct currency and creditors account.
+- You can always override the detected currency using the currency selector in the upload dialog.
+
+### Known Limitation
+
+ERPNext enforces a one-currency-per-supplier model. The plugin bypasses this validation because the underlying GL entries are accounting-correct (each invoice posts against the right creditors account in the right currency with proper base-currency conversion). However, some ERPNext reports were not designed for suppliers with GL entries in multiple currencies:
+
+- **Supplier Ledger Summary** and **General Ledger** (grouped by party): Base currency (company currency) totals are **always correct**. The "account currency" columns may show mixed-currency sums (e.g., USD + CAD added together) which are meaningless — this is a pre-existing ERPNext display limitation, not a data issue.
+- **Accounts Payable**: Works correctly in base currency mode. The "In Party Currency" toggle may mix currencies for multi-currency suppliers.
+
+This only affects suppliers that actually receive invoices in multiple currencies. Suppliers that consistently invoice in one currency are unaffected.
+
 ## Troubleshooting
 
 - Check **Invoice2Erpnext Log** for error details

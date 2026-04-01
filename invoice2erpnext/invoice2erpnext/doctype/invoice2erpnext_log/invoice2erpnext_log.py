@@ -101,7 +101,7 @@ class Invoice2ErpnextLog(Document):
             
             # Save the document
             purchase_invoice.insert(ignore_permissions=True)
-            
+
             # Update the log and link the file
             self._update_log_and_link_file(purchase_invoice.name)
             
@@ -166,6 +166,7 @@ class Invoice2ErpnextLog(Document):
                     for field, value in doc.items():
                         if field != "doctype":
                             new_doc.set(field, value)
+
                     # Save the document
                     new_doc.insert(ignore_permissions=True)
             
@@ -376,7 +377,13 @@ class Invoice2ErpnextLog(Document):
         }
         
     def _create_supplier_doc(self, vendor_info, currency=None):
-        """Create supplier document structure with default currency and payable account"""
+        """Create supplier document structure.
+
+        Does not set default_currency or accounts on the supplier so that
+        ERPNext falls back to the company's default payable account (in the
+        company's base currency).  This allows the same supplier to receive
+        invoices in any currency — the plugin sets credit_to per-PI instead.
+        """
         try:
             settings = frappe.get_doc("Invoice2Erpnext Settings")
             supplier_group = settings.supplier_group or "All Supplier Groups"
@@ -399,19 +406,6 @@ class Invoice2ErpnextLog(Document):
             "pincode": vendor_address.get("postalCode", ""),
             "tax_id": vendor_tax_id
         }
-
-        if currency:
-            supplier_doc["default_currency"] = currency
-
-            # Set the default payable account for this currency on the supplier
-            payable_account = self._get_payable_account(currency)
-            if payable_account:
-                company = frappe.defaults.get_defaults().get("company")
-                if company:
-                    supplier_doc["accounts"] = [{
-                        "company": company,
-                        "account": payable_account
-                    }]
 
         return supplier_doc
         
@@ -757,7 +751,11 @@ class Invoice2ErpnextLog(Document):
         self.save()
     
     def _get_payable_account(self, currency):
-        """Get the Accounts Payable account for a given currency from settings"""
+        """Get the Accounts Payable account for a given currency from settings.
+
+        Falls back to the company's default payable account if no mapping is
+        configured for the requested currency.  Throws if neither is available.
+        """
         try:
             settings = frappe.get_doc("Invoice2Erpnext Settings")
             for row in (settings.currency_accounts or []):
@@ -765,7 +763,22 @@ class Invoice2ErpnextLog(Document):
                     return row.payable_account
         except Exception as e:
             frappe.log_error(f"Error fetching payable account: {str(e)}")
-        return None
+
+        # Fallback: company's default payable account
+        company = frappe.defaults.get_defaults().get("company")
+        if company:
+            default_account = frappe.get_cached_value("Company", company, "default_payable_account")
+            if default_account:
+                frappe.log_error(
+                    f"No payable account mapped for currency {currency} in Invoice2Erpnext Settings. "
+                    f"Falling back to company default: {default_account}"
+                )
+                return default_account
+
+        frappe.throw(
+            f"No payable account found for currency {currency}. "
+            f"Please add a mapping in Invoice2Erpnext Settings → Currency Accounts."
+        )
 
     def _get_currency(self, extracted_currency):
         """Get the effective currency - override takes precedence over extracted"""

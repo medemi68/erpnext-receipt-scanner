@@ -118,6 +118,12 @@ doctype_list_js = {"Purchase Invoice" : "public/js/purchase_invoice_list.js"}
 # ---------------
 # Hook on document methods and events
 
+doc_events = {
+    "Purchase Invoice": {
+        "before_validate": "invoice2erpnext.utils.override_party_account_currency_cache"
+    }
+}
+
 #doc_events = {
 #    "File": {
 #		"after_insert": "invoice2erpnext.invoice2erpnext.doctype.invoice2erpnext.invoice2erpnext.set_file_from_communication"
